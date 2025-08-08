@@ -11,7 +11,7 @@ import os
 import openai
 
 # konlpy 및 summa 패키지 import
-from konlpy.tag import Okt
+from kiwipie import Kiwi
 from summa.keywords import keywords as summa_keywords
 
 # ✨ [수정] dotenv 라이브러리 import
@@ -43,7 +43,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-okt = Okt()
+kiwi = Kiwi()
 
 # ✨ [수정] os.getenv를 사용하여 환경 변수에서 API 키를 안전하게 로드
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
@@ -131,15 +131,15 @@ async def extract_keywords_llm_batch(payload: BatchAnalysisIn):
 @app.post("/extract-keywords-pos")
 async def extract_keywords_pos(data: TextIn):
     try:
-        nouns = [n for n in okt.nouns(data.text) if len(n) > 1]
+        # kiwi.tokenize()로 텍스트를 분석하고, 품사가 'NNG' 또는 'NNP' (일반명사, 고유명사)인 단어만 추출합니다.
+        nouns = [token.form for token in kiwi.tokenize(data.text) if token.tag in {'NNG', 'NNP'} and len(token.form) > 1]
         if not nouns: return []
         count = Counter(nouns)
         top_keywords = count.most_common(20)
         max_count = top_keywords[0][1] if top_keywords else 1
         return [{"word": word, "score": round(freq / max_count, 2)} for word, freq in top_keywords]
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"konlpy 분석 중 오류 발생: {e}")
-
+        raise HTTPException(status_code=500, detail=f"Kiwi 분석 중 오류 발생: {e}")
 
 # --- 엔드포인트 3: summa(TextRank) 기반 키워드 추출 (개별 처리용, 변경 없음) ---
 @app.post("/extract-keywords-textrank")
