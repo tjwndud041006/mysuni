@@ -11,7 +11,7 @@ import os
 import openai
 
 # konlpy 및 summa 패키지 import
-from kiwipie import Kiwi
+from kiwipiepy import Kiwi
 from summa.keywords import keywords as summa_keywords
 
 # ✨ [수정] dotenv 라이브러리 import
