@@ -3,6 +3,5 @@ uvicorn
 python-dotenv
 openai
 konlpy
-summa.preprocessing
-summa.keywords
+summa
 jpype1
