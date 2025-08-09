@@ -119,53 +119,28 @@ async def extract_keywords_llm_batch(payload: BatchAnalysisIn):
 
     return final_result
 
-# --- ✨ [수정] 엔드포인트: 인사이동 희망 여부 분석 (중복 제거 로직 추가) ---
+
+# --- ✨ [추가] 엔드포인트: 인사이동 희망 여부 분석 ---
 @app.post("/analyze-transfer-intent")
 async def analyze_transfer_intent(payload: InterviewDataIn):
-    # 💡 사람을 구별할 고유 컬럼명을 여기에 지정하세요. (예: '사번', '이름')
-    UNIQUE_IDENTIFIER_COLUMN = '이름'
-    
-    # 확인할 키워드 목록
     transfer_keywords = ['이동', '변경']
-    
-    # --------------------------------------------------------------------------
-    # 1단계: 전체 데이터에서 인사이동을 희망한 모든 사람의 고유 ID를 set으로 만듭니다.
-    # --------------------------------------------------------------------------
-    hopeful_ids = set()
-    for row in payload.data:
-        # 고유 ID가 있고, 의견이 실제로 존재하는 경우에만 처리
-        employee_id = row.get(UNIQUE_IDENTIFIER_COLUMN)
-        opinion_text = row.get('(2) 성장/역량/커리어-구성원 의견', '')
-        
-        if employee_id and opinion_text and any(keyword in opinion_text for keyword in transfer_keywords):
-            hopeful_ids.add(employee_id)
-
-    # --------------------------------------------------------------------------
-    # 2단계: '희망자 ID 목록'을 기준으로 최종 희망자/기타 목록을 생성합니다.
-    # --------------------------------------------------------------------------
-    final_hopefuls = []
-    final_others = []
-    added_hopeful_ids = set() # 최종 희망자 목록에 이미 추가되었는지 확인하기 위한 set
-
-    for row in payload.data:
-        employee_id = row.get(UNIQUE_IDENTIFIER_COLUMN)
-        
-        # 이 사람의 ID가 위에서 만든 희망자 목록에 있다면
-        if employee_id in hopeful_ids:
-            # 아직 최종 희망자 목록에 추가되지 않았다면
-            if employee_id not in added_hopeful_ids:
-                final_hopefuls.append(row) # 대표로 한 번만 추가
-                added_hopeful_ids.add(employee_id) # 추가되었다고 기록
-        
-        # 이 사람의 ID가 희망자 목록에 아예 없다면
-        else:
-            final_others.append(row) # 기타 목록에 추가
-
-    return {
-        "transfer_hopefuls": final_hopefuls,
-        "others": final_others
-    }
-
+    hopefuls = []
+    others = []
+    try:
+        for row in payload.data:
+            # 💡 아래 컬럼명은 실제 데이터에 맞게 확인/수정해야 합니다.
+            opinion_text = row.get('(2) 성장/역량/커리어-구성원 의견', '')
+            if opinion_text and any(keyword in opinion_text for keyword in transfer_keywords):
+                hopefuls.append(row)
+            else:
+                others.append(row)
+        return {
+            "transfer_hopefuls": hopefuls,
+            "others": others
+        }
+    except Exception as e:
+        print(f"💥 인사이동 분석 오류: {e}")
+        raise HTTPException(status_code=500, detail=f"인사이동 희망 여부 분석 중 오류 발생: {e}")
 
 # --- 엔드포인트 5: GPT 기반 HR 추천안 생성 (변경 없음) ---
 @app.post("/generate-suggestion")

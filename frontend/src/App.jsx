@@ -438,37 +438,67 @@ const KeywordDashboard = ({ title, icon: Icon, filteredData, allKeywordData, opi
   ); 
 };
 
-
-const TransferAnalysis = ({ filteredData, analysisResult }) => { 
+const TransferAnalysis = ({ filteredData, analysisResult, totalUniqueEmployees }) => { 
   const [selectedUser, setSelectedUser] = useState(null); 
   const [localJob, setLocalJob] = useState('all'); 
   const [localYear, setLocalYear] = useState('all'); 
   const localJobOptions = useMemo(() => ["all", ...new Set(filteredData.map(item => item.직무 || ""))].filter(Boolean), [filteredData]); 
   const localYearOptions = useMemo(() => ["all", ...new Set(filteredData.map(item => item.직무연차 || ""))].filter(Boolean), [filteredData]); 
-  const displayData = useMemo(() => { 
-    const locallyFilteredData = filteredData.filter(item => { 
-      const jobMatch = localJob === 'all' || item.직무 === localJob; 
-      const yearMatch = localYear === 'all' || item.직무연차 === localYear; 
-      return jobMatch && yearMatch; 
-    }); 
-    const locallyFilteredIds = new Set(locallyFilteredData.map(item => item.uniqueId)); 
-    const hopefuls = analysisResult.transfer_hopefuls.filter(user => locallyFilteredIds.has(user.uniqueId)); 
-    const total = locallyFilteredData.length; 
-    const hopeCount = hopefuls.length; 
+  
+  const displayData = useMemo(() => {
+    const locallyFilteredData = filteredData.filter(item => {
+      const jobMatch = localJob === 'all' || item.직무 === localJob;
+      const yearMatch = localYear === 'all' || item.직무연차 === localYear;
+      return jobMatch && yearMatch;
+    });
+
+    const filteredUniqueEmployees = new Set(locallyFilteredData.map(item => item.이름)).size;
+    
+    const uniqueHopefulsMap = analysisResult.transfer_hopefuls.reduce((acc, user) => {
+        if (user.이름 && !acc[user.이름]) {
+            acc[user.이름] = user;
+        }
+        return acc;
+    }, {});
+    const uniqueHopefuls = Object.values(uniqueHopefulsMap);
+    
+    const hopefulUniqueIds = new Set(uniqueHopefuls.map(user => user.이름));
+
+    const hopefulCountInFilter = new Set(
+        locallyFilteredData
+            .filter(item => hopefulUniqueIds.has(item.이름))
+            .map(item => item.이름)
+    ).size;
+    
     return { 
-      hopefuls: hopefuls, 
-      total: total, 
-      hopeCount: hopeCount, 
-      hopePercentage: total > 0 ? Math.round((hopeCount / total) * 100) : 0, 
+      hopefuls: uniqueHopefuls.filter(user => {
+          const userInData = locallyFilteredData.find(item => item.이름 === user.이름);
+          return !!userInData;
+      }),
+      total: filteredUniqueEmployees,
+      hopeCount: hopefulCountInFilter,
+      hopePercentage: filteredUniqueEmployees > 0 ? Math.round((hopefulCountInFilter / filteredUniqueEmployees) * 100) : 0, 
     }; 
   }, [filteredData, analysisResult, localJob, localYear]); 
+
+  const selectedUserOpinions = useMemo(() => {
+    if (!selectedUser) return [];
+    
+    const transferKeywords = ['이동', '변경'];
+    return filteredData.filter(row => 
+      row.이름 === selectedUser.이름 &&
+      row['(2) 성장/역량/커리어-구성원 의견'] &&
+      transferKeywords.some(keyword => row['(2) 성장/역량/커리어-구성원 의견'].includes(keyword))
+    );
+  }, [selectedUser, filteredData]);
+  
   const jobSpecificData = useMemo(() => {
     const locallyFilteredData = filteredData.filter(item => {
         const jobMatch = localJob === 'all' || item.직무 === localJob;
         const yearMatch = localYear === 'all' || item.직무연차 === localYear;
         return jobMatch && yearMatch;
     });
-    const hopefulIds = new Set(analysisResult.transfer_hopefuls.map(u => u.uniqueId));
+    const hopefulIds = new Set(analysisResult.transfer_hopefuls.map(u => u.이름));
     const statsByJob = {};
     locallyFilteredData.forEach(item => {
         const job = item.직무 || "기타";
@@ -476,7 +506,7 @@ const TransferAnalysis = ({ filteredData, analysisResult }) => {
             statsByJob[job] = { total: 0, hopefuls: 0 };
         }
         statsByJob[job].total++;
-        if (hopefulIds.has(item.uniqueId)) {
+        if (hopefulIds.has(item.이름)) {
             statsByJob[job].hopefuls++;
         }
     });
@@ -486,6 +516,7 @@ const TransferAnalysis = ({ filteredData, analysisResult }) => {
         percentage: data.total > 0 ? Math.round((data.hopefuls / data.total) * 100) : 0,
     })).sort((a, b) => b.hopefuls - a.hopefuls);
   }, [filteredData, analysisResult, localJob, localYear]);
+
   const DonutChart = ({ percentage }) => ( 
     <div className="relative w-28 h-28 flex items-center justify-center"> 
       <svg className="w-full h-full" viewBox="0 0 36 36" transform="rotate(-90)"> 
@@ -498,12 +529,13 @@ const TransferAnalysis = ({ filteredData, analysisResult }) => {
           </linearGradient> 
         </defs> 
       </svg> 
-      <div className="absolute text-center transform rotate(90)"> 
+      <div className="absolute text-center"> 
         <span className="block text-2xl font-bold bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent">{displayData.hopePercentage}%</span> 
         <span className="text-xs text-gray-600 font-semibold">희망</span> 
       </div> 
     </div> 
   ); 
+
   const downloadHopefulsCSV = () => { 
     if (displayData.hopefuls.length === 0) { 
         alert("다운로드할 인사이동 희망자 데이터가 없습니다."); 
@@ -519,6 +551,7 @@ const TransferAnalysis = ({ filteredData, analysisResult }) => {
     link.click(); 
     URL.revokeObjectURL(url); 
   }; 
+
   return ( 
     <div className="bg-white rounded-xl p-8 shadow-lg border border-gray-200 hover:shadow-xl transition-all duration-300"> 
       <div className="flex flex-wrap justify-between items-center mb-6 gap-4"> 
@@ -603,23 +636,23 @@ const TransferAnalysis = ({ filteredData, analysisResult }) => {
             <div>
                 <div className="flex items-center justify-between mb-4"> 
                     <h4 className="font-bold text-gray-800 text-lg flex items-center"><Users className="w-5 h-5 mr-2 text-blue-600" />희망자 목록</h4> 
-                    <div className="px-4 py-2 bg-blue-100 text-blue-800 font-bold rounded-full">{displayData.hopeCount}명</div> 
+                    <div className="px-4 py-2 bg-blue-100 text-blue-800 font-bold rounded-full">{displayData.hopefuls.length}명</div> 
                 </div> 
                 <div className="space-y-3 max-h-[480px] overflow-y-auto pr-2"> 
                     {displayData.hopefuls.length > 0 ? ( 
                     displayData.hopefuls.map(user => ( 
                         <div 
-                            key={user.uniqueId} 
+                            key={user.이름} 
                             onClick={() => setSelectedUser(user)} 
                             className={`group p-3 rounded-xl border-2 transition-all duration-200 cursor-pointer flex items-center ${
-                                selectedUser?.uniqueId === user.uniqueId 
+                                selectedUser?.이름 === user.이름 
                                 ? 'bg-blue-100 border-blue-400 shadow-md' 
                                 : 'bg-white border-gray-200 hover:border-blue-300 hover:shadow-lg'
                             }`}
                         > 
                             <div className="flex-shrink-0 mr-3"> 
-                                <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200 ${selectedUser?.uniqueId === user.uniqueId ? 'bg-blue-500' : 'bg-gray-100 group-hover:bg-blue-100'}`}> 
-                                    <User className={`w-5 h-5 ${selectedUser?.uniqueId === user.uniqueId ? 'text-white' : 'text-blue-600'}`} /> 
+                                <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200 ${selectedUser?.이름 === user.이름 ? 'bg-blue-500' : 'bg-gray-100 group-hover:bg-blue-100'}`}> 
+                                    <User className={`w-5 h-5 ${selectedUser?.이름 === user.이름 ? 'text-white' : 'text-blue-600'}`} /> 
                                 </div> 
                             </div> 
                             <div className="flex-grow min-w-0"> 
@@ -658,17 +691,22 @@ const TransferAnalysis = ({ filteredData, analysisResult }) => {
                                 <X className="w-5 h-5 text-gray-500" />
                             </button>
                         </div>
-                        <div className="flex-grow bg-white p-4 rounded-lg border border-gray-200 overflow-y-auto">
-                            <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">
-                                {selectedUser['(2) 성장/역량/커리어-구성원 의견']}
-                            </p>
+                        <div className="flex-grow bg-white p-4 rounded-lg border border-gray-200 overflow-y-auto space-y-4">
+                            {selectedUserOpinions.map((opinionRow) => (
+                                <div key={opinionRow.uniqueId} className="pb-4 border-b border-gray-100 last:border-b-0">
+                                    <p className="text-sm text-gray-500 font-semibold mb-2">{opinionRow.분기} 면담</p>
+                                    <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">
+                                        {opinionRow['(2) 성장/역량/커리어-구성원 의견']}
+                                    </p>
+                                </div>
+                            ))}
                         </div>
                     </>
                 ) : (
                     <div className="flex-grow flex flex-col items-center justify-center text-center text-gray-500">
                         <Eye className="w-12 h-12 text-gray-400 mb-4" />
                         <p className="font-semibold">세부 의견 보기</p>
-                        <p className="text-sm">왼쪽 목록에서 구성원을 선택하여<br />세부 내용을 확인하세요.</p>
+                        <p className="text-sm">왼쪽 목록에서 구성원을 선택하여<br />모든 이동 희망 의견을 확인하세요.</p>
                     </div>
                 )}
             </div>
@@ -677,6 +715,14 @@ const TransferAnalysis = ({ filteredData, analysisResult }) => {
     </div> 
   ); 
 };
+
+
+
+
+
+
+
+
 const StatCard = ({ title, value, subtitle, icon: Icon, color = "blue", trend }) => ( 
    <div className={`bg-gradient-to-br from-white to-${color}-50 rounded-xl p-6 shadow-lg border border-${color}-100 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1`}> 
      <div className="flex items-center justify-between"> 
@@ -697,77 +743,93 @@ const StatCard = ({ title, value, subtitle, icon: Icon, color = "blue", trend })
      </div> 
    </div> 
  );
+
+ // App.jsx 파일 내부
+
 const ChartSection = ({  
-   filteredData,  
-   transferAnalysisData,  
-   workKeywords,  
-   growthKeywords,  
-   envKeywords  
- }) => { 
-   const totalEmployees = filteredData.length; 
-   const uniqueJobs = new Set(filteredData.map(item => item.직무)).size; 
-   const transferHopefuls = transferAnalysisData ? transferAnalysisData.transfer_hopefuls.length : 0; 
-   return ( 
-     <div className="space-y-8"> 
-       <div className="grid grid-cols-1 md:grid-cols-3 gap-6"> 
-         <StatCard 
-           title="총 면담 인원" 
-           value={totalEmployees} 
-           subtitle="명" 
-           icon={Users} 
-           color="blue" 
-         /> 
-         <StatCard 
-           title="직무 유형" 
-           value={uniqueJobs} 
-           subtitle="개 직무" 
-           icon={Building2} 
-           color="green" 
-         /> 
-         <StatCard 
-           title="인사이동 희망" 
-           value={transferHopefuls} 
-           subtitle="명" 
-           icon={UserCheck} 
-           color="purple" 
-         /> 
-       </div> 
-       {transferAnalysisData && ( 
-         <TransferAnalysis 
-           filteredData={filteredData} 
-           analysisResult={transferAnalysisData} 
-         /> 
-       )} 
-       {workKeywords &&  
-           <KeywordDashboard  
-               title="업무 관련 키워드 분석"  
-               icon={Briefcase} 
-               filteredData={filteredData}  
-               allKeywordData={workKeywords} 
-               opinionColumn="(1) 업무-구성원 의견" 
-           /> 
-       } 
-       {growthKeywords &&  
-           <KeywordDashboard  
-               title="성장/역량 관련 키워드 분석"  
-               icon={TrendingUp} 
-               filteredData={filteredData}  
-               allKeywordData={growthKeywords} 
-               opinionColumn="(2) 성장/역량/커리어-구성원 의견" 
-           /> 
-       } 
-       {envKeywords &&  
-           <KeywordDashboard  
-               title="업무환경 관련 키워드 분석"  
-               icon={Home} 
-               filteredData={filteredData}  
-               allKeywordData={envKeywords} 
-               opinionColumn="(3) 업무환경조성-구성원 의견" 
-           /> 
-       } 
-     </div> 
-   ); 
- }; 
+  filteredData,  
+  transferAnalysisData,  
+  workKeywords,  
+  growthKeywords,  
+  envKeywords  
+}) => { 
+  const totalUniqueEmployees = useMemo(() => 
+      new Set(filteredData.map(item => item.이름)).size, 
+      [filteredData]
+  );
+  
+  const uniqueJobs = useMemo(() => 
+      new Set(filteredData.map(item => item.직무)).size, 
+      [filteredData]
+  );
+  
+  // ✨ [수정] 백엔드에서 받은 고유 희망자 목록의 길이를 사용합니다.
+  const transferHopefulsCount = transferAnalysisData 
+       ? new Set(transferAnalysisData.transfer_hopefuls.map(user => user.이름)).size 
+       : 0;
+  
+  return ( 
+    <div className="space-y-8"> 
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6"> 
+        <StatCard 
+          title="총 면담 인원" 
+          value={totalUniqueEmployees} 
+          subtitle="명)"
+          icon={Users} 
+          color="blue" 
+        /> 
+        <StatCard 
+          title="직무 유형" 
+          value={uniqueJobs} 
+          subtitle="개 직무" 
+          icon={Building2} 
+          color="green" 
+        /> 
+        <StatCard 
+          title="인사이동 희망" 
+          value={transferHopefulsCount} // ✨ [수정] 정확한 고유 희망자 수로 변경
+          subtitle="명 (고유 인원)" 
+          icon={UserCheck} 
+          color="purple" 
+        /> 
+      </div> 
+      {transferAnalysisData && ( 
+        <TransferAnalysis 
+          totalUniqueEmployees={totalUniqueEmployees}
+          filteredData={filteredData} 
+          analysisResult={transferAnalysisData} 
+        /> 
+      )} 
+      {workKeywords &&  
+          <KeywordDashboard  
+              title="업무 관련 키워드 분석"  
+              icon={Briefcase} 
+              filteredData={filteredData}  
+              allKeywordData={workKeywords} 
+              opinionColumn="(1) 업무-구성원 의견" 
+          /> 
+      } 
+      {growthKeywords &&  
+          <KeywordDashboard  
+              title="성장/역량 관련 키워드 분석"  
+              icon={TrendingUp} 
+              filteredData={filteredData}  
+              allKeywordData={growthKeywords} 
+              opinionColumn="(2) 성장/역량/커리어-구성원 의견" 
+          /> 
+      } 
+      {envKeywords &&  
+          <KeywordDashboard  
+              title="업무환경 관련 키워드 분석"  
+              icon={Home} 
+              filteredData={filteredData}  
+              allKeywordData={envKeywords} 
+              opinionColumn="(3) 업무환경조성-구성원 의견" 
+          /> 
+      } 
+    </div> 
+  ); 
+};
 
  const App = () => {
   const [data, setData] = useState([]);
@@ -777,15 +839,9 @@ const ChartSection = ({
   const [envKeywords, setEnvKeywords] = useState(null);
   const [loading, setLoading] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState("");
-  // 🚫 [삭제] analysisMode 상태 삭제
-  // const [analysisMode, setAnalysisMode] = useState('pos');
   const [isAnalysisEnabled, setIsAnalysisEnabled] = useState(true);
   
   const [progress, setProgress] = useState(0);
-  
-  // 🚫 [삭제] pos/textrank용 상태 삭제
-  // const [processedCount, setProcessedCount] = useState(0);
-  // const [totalCount, setTotalCount] = useState(0);
 
   const [selectedJob, setSelectedJob] = useState("all");
   const [selectedYear, setSelectedYear] = useState("all");
@@ -808,9 +864,6 @@ const ChartSection = ({
     setLoading(false);
     setLoadingMessage("");
     setProgress(0);
-    // 🚫 [삭제]
-    // setProcessedCount(0);
-    // setTotalCount(0);
     setSelectedJob("all");
     setSelectedYear("all");
   };
@@ -818,9 +871,6 @@ const ChartSection = ({
   const handleFileUpload = async (file) => {
     setLoading(true);
     setProgress(0);
-    // 🚫 [삭제]
-    // setProcessedCount(0);
-    // setTotalCount(0);
     setLoadingMessage("Excel 파일을 파싱 중입니다...");
 
     try {
