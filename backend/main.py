@@ -3,25 +3,20 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Dict, Any
-from collections import Counter
 import json
 import os
 
 # ✨ OpenAI 라이브러리 import
 import openai
 
-# konlpy 및 summa 패키지 import
-from kiwipiepy import Kiwi
-from summa.keywords import keywords as summa_keywords
-
-# ✨ [수정] dotenv 라이브러리 import
+# ✨ dotenv 라이브러리 import
 from dotenv import load_dotenv
 
-# ✨ [수정] .env 파일에서 환경 변수를 로드
+# ✨ .env 파일에서 환경 변수를 로드
 load_dotenv()
 
 
-# --- Pydantic 모델 정의 ---
+# --- Pydantic 모델 정의 (변경 없음) ---
 class TextIn(BaseModel):
     text: str
 
@@ -33,7 +28,7 @@ class BatchAnalysisIn(BaseModel):
     column_name: str
 
 
-# --- FastAPI 앱 및 CORS 설정 ---
+# --- FastAPI 앱 및 CORS 설정 (변경 없음) ---
 app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
@@ -43,9 +38,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-kiwi = Kiwi()
-
-# ✨ [수정] os.getenv를 사용하여 환경 변수에서 API 키를 안전하게 로드
+# --- OpenAI 클라이언트 설정 (변경 없음) ---
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 try:
@@ -61,7 +54,7 @@ except Exception as e:
     openai_client = None
 
 
-# --- ✨ [수정/통합] 엔드포인트 1: GPT 기반 키워드 추출 (배치 처리) ---
+# --- 엔드포인트 1: GPT 기반 키워드 추출 (배치 처리) (변경 없음) ---
 @app.post("/extract-keywords-llm-batch")
 async def extract_keywords_llm_batch(payload: BatchAnalysisIn):
     """
@@ -127,39 +120,7 @@ async def extract_keywords_llm_batch(payload: BatchAnalysisIn):
     return final_result
 
 
-# --- 엔드포인트 2: 단순 명사 빈도수 기반 키워드 추출 (개별 처리용, 변경 없음) ---
-@app.post("/extract-keywords-pos")
-async def extract_keywords_pos(data: TextIn):
-    try:
-        # kiwi.tokenize()로 텍스트를 분석하고, 품사가 'NNG' 또는 'NNP' (일반명사, 고유명사)인 단어만 추출합니다.
-        nouns = [token.form for token in kiwi.tokenize(data.text) if token.tag in {'NNG', 'NNP'} and len(token.form) > 1]
-        if not nouns: return []
-        count = Counter(nouns)
-        top_keywords = count.most_common(20)
-        max_count = top_keywords[0][1] if top_keywords else 1
-        return [{"word": word, "score": round(freq / max_count, 2)} for word, freq in top_keywords]
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Kiwi 분석 중 오류 발생: {e}")
-
-# --- 엔드포인트 3: summa(TextRank) 기반 키워드 추출 (개별 처리용, 변경 없음) ---
-@app.post("/extract-keywords-textrank")
-async def extract_keywords_textrank(data: TextIn):
-    try:
-        keyword_list = summa_keywords(data.text, words=20, split=True)
-        if not keyword_list:
-            return []
-        num_keywords = len(keyword_list)
-        result = [
-            {"word": word, "score": round((num_keywords - i) / num_keywords, 2)}
-            for i, word in enumerate(keyword_list)
-        ]
-        return result
-    except Exception as e:
-        print(f"💥 summa (TextRank) 분석 오류: {e}")
-        raise HTTPException(status_code=500, detail="TextRank 분석 중 오류가 발생했습니다.")
-
-
-# --- 엔드포인트 4: 인사이동 희망 여부 분석 (변경 없음) ---
+# --- ✨ [추가] 엔드포인트: 인사이동 희망 여부 분석 ---
 @app.post("/analyze-transfer-intent")
 async def analyze_transfer_intent(payload: InterviewDataIn):
     transfer_keywords = ['이동', '변경']
@@ -167,6 +128,7 @@ async def analyze_transfer_intent(payload: InterviewDataIn):
     others = []
     try:
         for row in payload.data:
+            # 💡 아래 컬럼명은 실제 데이터에 맞게 확인/수정해야 합니다.
             opinion_text = row.get('(2) 성장/역량/커리어-구성원 의견', '')
             if opinion_text and any(keyword in opinion_text for keyword in transfer_keywords):
                 hopefuls.append(row)
@@ -181,7 +143,7 @@ async def analyze_transfer_intent(payload: InterviewDataIn):
         raise HTTPException(status_code=500, detail=f"인사이동 희망 여부 분석 중 오류 발생: {e}")
 
 
-# --- 엔드포인트 5: GPT 기반 HR 추천안 생성 (개별 처리용, 변경 없음) ---
+# --- 엔드포인트 5: GPT 기반 HR 추천안 생성 (변경 없음) ---
 @app.post("/generate-suggestion")
 async def generate_suggestion(data: TextIn):
     if not openai_client:
@@ -206,7 +168,8 @@ async def generate_suggestion(data: TextIn):
    - 구성원 Physical Care (사내 헬스 트레이닝 지원 등)
 ---
 지시사항: 아래 구성원의 의견을 바탕으로, 위 프로그램 중 가장 적합한 해결책을 찾아 구체적인 실행 방안을 **한국어 한 문장**으로 제안하세요.
-출력 예시: "새로운 프로젝트 리딩 경험을 쌓고 싶다는 의견에 따라, 유관 부서의 신규 TF에 참여하여 전문성을 활용하고 리더십을 키울 기회를 제공하는 것을 고려해볼 수 있겠습니다."
+출력 예시: "새로운 프로젝트 리딩 경험을 쌓고 싶다는 의견에 따라, 유관 부서의 신규 TF에 참여하여 전문성을 활용하고 리더십을 키울 기회를 제공하는 것을 고려해볼 수
+있겠습니다."
 """
     user_prompt = f"다음 SK엔무브 구성원의 의견에 대한 맞춤형 HR 추천안을 지시사항에 맞게 한 문장으로 만들어주세요:\n\n{data.text}"
 
@@ -234,7 +197,7 @@ async def generate_suggestion(data: TextIn):
 
 @app.get("/")
 def read_root():
-    return {"message": "HR 면담 분석 API, 5개 엔드포인트 실행 중"}
+    return {"message": "HR 면담 분석 API, 3개 엔드포인트 실행 중"}
 
 # uvicorn 서버 실행 (로컬 테스트용)
 if __name__ == "__main__":

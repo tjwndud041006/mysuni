@@ -1,95 +1,57 @@
 import React, { useState, useMemo } from "react";
 import * as XLSX from "xlsx";
 import Papa from "papaparse";
-import { Upload, Download, BarChart3, FileSpreadsheet, TrendingUp, Users, UserCheck,  Bell, User, Settings, MessageSquare, Tag, Hash, BrainCircuit, Zap, X, Briefcase, Home, Filter, Calendar, Building2, Award, Target, CheckCircle2, AlertCircle, ArrowRight, Activity, Sparkles, Eye, Search } from "lucide-react";
+import { Upload, Download, BarChart3, FileSpreadsheet, TrendingUp, Users, UserCheck,  Bell, User, Settings, MessageSquare, Tag, Hash, Zap, X, Briefcase, Home, Filter, Calendar, Building2, Award, Target, CheckCircle2, AlertCircle, ArrowRight, Activity, Sparkles, Eye, Search } from "lucide-react";
 
-// ✅ 추가할 코드
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 
-
-// ✨ [수정] 백엔드 로직에 맞춰 API 호출 함수 재구성
-const runKeywordAnalysis = async (data, columnName, mode, onProgress) => {
-  // 1. 분석할 유효한 데이터만 필터링
+// ✨ [수정] LLM 분석 전용으로 API 호출 함수 간소화
+const runKeywordAnalysis = async (data, columnName, onProgress) => {
+  // 분석할 유효한 데이터만 필터링
   const itemsToProcess = data
     .map(row => ({ id: row.uniqueId, text: row[columnName] }))
     .filter(item => item.text && typeof item.text === 'string' && item.text.trim().length >= 5);
 
   if (itemsToProcess.length === 0) {
-    if (onProgress) onProgress(1, 1); // 처리할 데이터가 없어도 완료 신호 전송
+    if (onProgress) onProgress(1, 1);
     return {};
   }
 
-  const allKeywordData = {};
+  // LLM 모드는 전체 데이터를 한번에 백엔드로 전송
+  const endpoint = '/extract-keywords-llm-batch';
+  const payload = {
+    data: data, // uniqueId를 포함한 전체 원본 데이터 전달
+    column_name: columnName,
+  };
 
-  // 2. 'llm' 모드는 전체 데이터를 한번에 백엔드로 전송
-  if (mode === 'llm') {
-    const endpoint = '/extract-keywords-llm-batch';
-    const payload = {
-      data: data, // uniqueId를 포함한 전체 원본 데이터 전달
-      column_name: columnName,
-    };
+  try {
+    const response = await fetch(`${BACKEND_URL}${endpoint}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
 
-    try {
-      const response = await fetch(`${BACKEND_URL}${endpoint}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        // 백엔드가 반환한 결과는 이미 { "row_id": [...] } 형식이므로 그대로 사용
-        return result;
-      } else {
-         // API 실패 시 모든 항목을 빈 배열로 처리
-        itemsToProcess.forEach(item => { allKeywordData[item.id] = []; });
-      }
-    } catch (error) {
-      console.error("LLM Batch analysis error:", error);
+    if (response.ok) {
+      const result = await response.json();
+      return result;
+    } else {
+      // API 실패 시 모든 항목을 빈 배열로 처리
+      const allKeywordData = {};
       itemsToProcess.forEach(item => { allKeywordData[item.id] = []; });
+      return allKeywordData;
     }
-    
+  } catch (error) {
+    console.error("LLM Batch analysis error:", error);
+    const allKeywordData = {};
+    itemsToProcess.forEach(item => { allKeywordData[item.id] = []; });
+    return allKeywordData;
+  } finally {
     // 이 단계의 분석이 완료되었음을 알림
     if (onProgress) onProgress(1, 1);
-    return allKeywordData;
-
-  } else {
-    // 3. 'pos', 'textrank' 모드는 기존처럼 한 건씩 순차적으로 처리
-    const endpointMap = {
-      pos: '/extract-keywords-pos',
-      textrank: '/extract-keywords-textrank'
-    };
-    const endpoint = endpointMap[mode];
-    let processedCount = 0;
-    const totalCount = itemsToProcess.length;
-
-    for (const item of itemsToProcess) {
-      const payload = { text: item.text };
-      try {
-        const response = await fetch(`${BACKEND_URL}${endpoint}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
-        if (response.ok) {
-          allKeywordData[item.id] = await response.json();
-        } else {
-          allKeywordData[item.id] = [];
-        }
-      } catch (error) {
-        allKeywordData[item.id] = [];
-      }
-      processedCount++;
-      // 한 건씩 진행률 업데이트
-      if (onProgress) onProgress(processedCount, totalCount);
-    }
-    return allKeywordData;
   }
 };
 
 
-// (FileUploader, OpinionCard, KeywordDashboard, TransferAnalysis, StatCard, ChartSection 컴포넌트는 변경 없음)
-// ... 기존 컴포넌트 코드 ...
 const FileUploader = ({ onFileUpload }) => { 
      const [isDragging, setIsDragging] = useState(false); 
      const handleDragEnter = (e) => { e.preventDefault(); setIsDragging(true); }; 
@@ -291,25 +253,41 @@ const KeywordDashboard = ({ title, icon: Icon, filteredData, allKeywordData, opi
   const handleKeywordClick = (keyword) => { 
       if (selectedKeyword === keyword) { 
           setSelectedKeyword(null); 
+          setRelatedOpinions([]); 
           return; 
       } 
-      const opinions = filteredData 
-          .filter(row => { 
-              const jobMatch = localJob === 'all' || row.직무 === localJob; 
-              const yearMatch = localYear === 'all' || row.직무연차 === localYear; 
-              const textExists = row[opinionColumn] && typeof row[opinionColumn] === 'string'; 
-              return jobMatch && yearMatch && textExists && row[opinionColumn].includes(keyword); 
-          }) 
-          .map((row, index) => ({ 
+      
+        const currentlyVisibleIds = new Set(
+          filteredData
+              .filter(item => {
+                  const jobMatch = localJob === 'all' || item.직무 === localJob;
+                  const yearMatch = localYear === 'all' || item.직무연차 === localYear;
+                  return jobMatch && yearMatch;
+              })
+              .map(item => item.uniqueId)
+      );
+
+      const opinionIdsWithKeyword = Object.entries(allKeywordData)
+          .filter(([uniqueId, keywords]) => 
+              currentlyVisibleIds.has(uniqueId) && 
+              keywords.some(kw => kw.word === keyword)
+          )
+          .map(([uniqueId]) => uniqueId);
+
+      const opinions = filteredData
+          .filter(row => opinionIdsWithKeyword.includes(row.uniqueId))
+          .map((row, index) => ({
               id: `${row.uniqueId}_${index}`,
-              name: row.이름, 
-              job: row.직무, 
-              year: row.직무연차, 
-              opinion: row[opinionColumn] 
-          })); 
-      setRelatedOpinions(opinions); 
-      setSelectedKeyword(keyword); 
-  }; 
+              name: row.이름,
+              job: row.직무,
+              year: row.직무연차,
+              opinion: row[opinionColumn]
+          }));
+      
+      setRelatedOpinions(opinions);
+      setSelectedKeyword(keyword);
+    };
+
   const KeywordBarChart = ({ keywords, groupName }) => { 
     const top5Keywords = keywords.slice(0, 5); 
     const maxCount = top5Keywords.length > 0 ? Math.max(...top5Keywords.map(k => k.count)) : 1; 
@@ -792,14 +770,15 @@ const ChartSection = ({
   const [envKeywords, setEnvKeywords] = useState(null);
   const [loading, setLoading] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState("");
-  const [analysisMode, setAnalysisMode] = useState('pos');
+  // 🚫 [삭제] analysisMode 상태 삭제
+  // const [analysisMode, setAnalysisMode] = useState('pos');
   const [isAnalysisEnabled, setIsAnalysisEnabled] = useState(true);
   
   const [progress, setProgress] = useState(0);
   
-  // ✨ [수정] 'pos', 'textrank' 모드에서만 사용할 상태
-  const [processedCount, setProcessedCount] = useState(0);
-  const [totalCount, setTotalCount] = useState(0);
+  // 🚫 [삭제] pos/textrank용 상태 삭제
+  // const [processedCount, setProcessedCount] = useState(0);
+  // const [totalCount, setTotalCount] = useState(0);
 
   const [selectedJob, setSelectedJob] = useState("all");
   const [selectedYear, setSelectedYear] = useState("all");
@@ -822,8 +801,9 @@ const ChartSection = ({
     setLoading(false);
     setLoadingMessage("");
     setProgress(0);
-    setProcessedCount(0);
-    setTotalCount(0);
+    // 🚫 [삭제]
+    // setProcessedCount(0);
+    // setTotalCount(0);
     setSelectedJob("all");
     setSelectedYear("all");
   };
@@ -831,8 +811,9 @@ const ChartSection = ({
   const handleFileUpload = async (file) => {
     setLoading(true);
     setProgress(0);
-    setProcessedCount(0);
-    setTotalCount(0);
+    // 🚫 [삭제]
+    // setProcessedCount(0);
+    // setTotalCount(0);
     setLoadingMessage("Excel 파일을 파싱 중입니다...");
 
     try {
@@ -851,51 +832,40 @@ const ChartSection = ({
         jsonData = jsonData.map((row, index) => ({ ...row, uniqueId: `row_${index}` }));
         setProgress(10);
         
-        // ✨ [수정] 'pos', 'textrank' 모드일 때만 사용될 함수
-        const countProcessable = (columnName) => jsonData.filter(item => item[columnName] && typeof item[columnName] === 'string' && item[columnName].trim().length >= 5).length;
-
         if (isAnalysisEnabled) {
-            // ✨ [수정] 분석 함수 호출부를 새 함수로 변경하고, 진행률 로직 수정
+            // ✨ [수정] 분석 함수 호출 시 'analysisMode' 인자 제거
             
             // Step 1: 업무 분석 (10% -> 35%)
             setLoadingMessage("업무 관련 의견을 분석 중입니다...");
-            setTotalCount(countProcessable('(1) 업무-구성원 의견')); // pos/textrank 용
-            const workResult = await runKeywordAnalysis(jsonData, '(1) 업무-구성원 의견', analysisMode, (processed, total) => {
+            const workResult = await runKeywordAnalysis(jsonData, '(1) 업무-구성원 의견', (processed, total) => {
               setProgress(10 + Math.round((processed / total) * 25));
-              setProcessedCount(processed); // pos/textrank 용
             });
             setWorkKeywords(workResult);
-            setProgress(35); // LLM 모드일 경우 단계 완료를 명시
 
             // Step 2: 성장/역량 분석 (35% -> 60%)
             setLoadingMessage("성장/역량 관련 의견을 분석 중입니다...");
-            setTotalCount(countProcessable('(2) 성장/역량/커리어-구성원 의견'));
-            const growthResult = await runKeywordAnalysis(jsonData, '(2) 성장/역량/커리어-구성원 의견', analysisMode, (processed, total) => {
+            const growthResult = await runKeywordAnalysis(jsonData, '(2) 성장/역량/커리어-구성원 의견', (processed, total) => {
                 setProgress(35 + Math.round((processed / total) * 25));
-                setProcessedCount(processed);
             });
             setGrowthKeywords(growthResult);
-            setProgress(60);
 
             // Step 3: 업무환경 분석 (60% -> 85%)
             setLoadingMessage("업무환경 관련 의견을 분석 중입니다...");
-            setTotalCount(countProcessable('(3) 업무환경조성-구성원 의견'));
-            const envResult = await runKeywordAnalysis(jsonData, '(3) 업무환경조성-구성원 의견', analysisMode, (processed, total) => {
+            const envResult = await runKeywordAnalysis(jsonData, '(3) 업무환경조성-구성원 의견', (processed, total) => {
                 setProgress(60 + Math.round((processed / total) * 25));
-                setProcessedCount(processed);
             });
             setEnvKeywords(envResult);
-            setProgress(85);
 
         } else {
             setWorkKeywords(null);
             setGrowthKeywords(null);
             setEnvKeywords(null);
-            setProgress(85);
         }
         
-        setProcessedCount(0);
-        setTotalCount(0);
+        // 🚫 [삭제]
+        // setProcessedCount(0);
+        // setTotalCount(0);
+        setProgress(85);
 
         // Step 4: 인사이동 분석 (85% -> 95%)
         setLoadingMessage("인사이동 희망 여부를 분석 중입니다...");
@@ -1003,13 +973,8 @@ const ChartSection = ({
                     <h3 className="mt-4 text-lg font-semibold text-gray-900">AI 분석 진행 중</h3>
                     <p className="mt-2 text-sm text-gray-600 text-center max-w-md">{loadingMessage}</p>
                     
-                    {/* ✨ [수정] 'pos', 'textrank' 모드일 때만 처리 건수가 표시됨 */}
-                    {analysisMode !== 'llm' && totalCount > 0 && (
-                        <p className="mt-1 text-xs text-gray-500 font-medium">
-                            ({processedCount} / {totalCount} 건 처리 완료)
-                        </p>
-                    )}
-                    
+                    {/* 🚫 [삭제] 'pos', 'textrank' 모드용 진행률 표시 삭제 */}
+
                     <div className="w-full max-w-md mt-4">
                         <div className="w-full bg-gray-200 rounded-full h-2.5">
                             <div 
@@ -1039,36 +1004,15 @@ const ChartSection = ({
                           AI 키워드 분석
                         </span>
                         <p className="text-sm text-gray-600 mt-1">
-                          {isAnalysisEnabled ? '고급 AI 분석을 통해 인사이트 도출' : '기본 분석만 수행'}
+                          {isAnalysisEnabled ? '고품질 LLM 분석을 통해 인사이트 도출' : '기본 분석만 수행'}
                         </p>
                       </div>
                     </div>
                   </ToggleSwitch>
                 </div>
                 
-                {isAnalysisEnabled && (
-                  <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-200 w-full md:w-auto">
-                    <div className="flex items-center space-x-4">
-                      <div className="p-3 bg-purple-100 rounded-lg">
-                        <BrainCircuit className="w-6 h-6 text-purple-600" />
-                      </div>
-                      <div className="flex-grow">
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">
-                          분석 모드 선택
-                        </label>
-                        <select
-                          value={analysisMode}
-                          onChange={(e) => setAnalysisMode(e.target.value)}
-                          className="block w-full text-sm border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-50"
-                        >
-                          <option value="pos">빈도 기반 분석 (추천)</option>
-                          <option value="llm">LLM 분석 (고품질)</option>
-                          <option value="textrank">TextRank 분석 (빠름)</option>
-                        </select>
-                      </div>
-                    </div>
-                  </div>
-                )}
+                {/* 🚫 [삭제] 분석 모드 선택 UI 전체 삭제 */}
+                
               </div>
             )}
           </div>
