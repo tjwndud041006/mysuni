@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from "react";
 import * as XLSX from "xlsx";
 import Papa from "papaparse";
-import { Upload, Download, BarChart3, FileSpreadsheet, TrendingUp, Users, UserCheck,  Bell, User, Settings, MessageSquare, Tag, Hash, Zap, X, Briefcase, Home, Filter, Calendar, Building2, Award, Target, CheckCircle2, AlertCircle, ArrowRight, Activity, Sparkles, Eye, Search } from "lucide-react";
+import { Upload, Download, BarChart3, FileSpreadsheet, TrendingUp, Users, UserCheck,  Bell, User, Settings, MessageSquare, Tag, Hash, Zap, X, Briefcase, Home, Filter, Calendar, Building2, Award, CheckCircle2, AlertCircle, ArrowRight, Activity, Sparkles, Eye } from "lucide-react";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 
@@ -207,6 +207,9 @@ const OpinionCard = ({ item }) => {
     </div>
   );
 };
+
+// App.jsx 또는 관련 컴포넌트 파일
+
 const KeywordDashboard = ({ title, icon: Icon, filteredData, allKeywordData, opinionColumn }) => { 
   const [localJob, setLocalJob] = useState('all'); 
   const [localYear, setLocalYear] = useState('all'); 
@@ -214,19 +217,26 @@ const KeywordDashboard = ({ title, icon: Icon, filteredData, allKeywordData, opi
   const [relatedOpinions, setRelatedOpinions] = useState([]); 
   const localJobOptions = useMemo(() => ["all", ...new Set(filteredData.map(item => item.직무 || ""))].filter(Boolean), [filteredData]); 
   const localYearOptions = useMemo(() => ["all", ...new Set(filteredData.map(item => item.직무연차 || ""))].filter(Boolean), [filteredData]); 
+
+  // ✨ [수정] '전체' 선택 시에도 데이터를 그룹핑하도록 로직 변경
   const groupedKeywords = useMemo(() => { 
       const locallyFilteredData = filteredData.filter(item => { 
           const jobMatch = localJob === 'all' || item.직무 === localJob; 
           const yearMatch = localYear === 'all' || item.직무연차 === localYear; 
           return jobMatch && yearMatch; 
       }); 
+
       if (locallyFilteredData.length === 0 || !allKeywordData || Object.keys(allKeywordData).length === 0) { 
           return {}; 
       } 
+
       const keywordMap = locallyFilteredData.reduce((acc, row) => { 
-          const groupKey = row['직무'] || '기타'; 
+          // '전체' 필터일 경우 '전체' 그룹으로, 아닐 경우 직무별 그룹으로 키 설정
+          const groupKey = (localJob === 'all' && localYear === 'all') ? '전체' : row['직무'] || '기타'; 
+          
           if (!acc[groupKey]) acc[groupKey] = {}; 
           const keywords = allKeywordData[row.uniqueId]; 
+          
           if (keywords && keywords.length > 0) { 
               keywords.forEach(({ word, score }) => { 
                   if (!acc[groupKey][word]) acc[groupKey][word] = { totalScore: 0, count: 0 }; 
@@ -236,6 +246,7 @@ const KeywordDashboard = ({ title, icon: Icon, filteredData, allKeywordData, opi
           } 
           return acc; 
       }, {}); 
+
       const finalGroupedKeywords = {}; 
       for (const group in keywordMap) { 
           finalGroupedKeywords[group] = Object.entries(keywordMap[group]) 
@@ -249,7 +260,7 @@ const KeywordDashboard = ({ title, icon: Icon, filteredData, allKeywordData, opi
       } 
       return finalGroupedKeywords; 
   }, [filteredData, allKeywordData, localJob, localYear]); 
-  const isFilterSelected = localJob !== 'all' || localYear !== 'all'; 
+
   const handleKeywordClick = (keyword) => { 
       if (selectedKeyword === keyword) { 
           setSelectedKeyword(null); 
@@ -326,7 +337,9 @@ const KeywordDashboard = ({ title, icon: Icon, filteredData, allKeywordData, opi
         </div> 
     ); 
   }; 
+  
   const numGroups = Object.keys(groupedKeywords).length; 
+
   return ( 
     <div className="bg-white rounded-xl p-8 shadow-lg border border-gray-200 hover:shadow-xl transition-all duration-300"> 
         <div className="flex flex-wrap justify-between items-center mb-6 gap-4"> 
@@ -354,51 +367,43 @@ const KeywordDashboard = ({ title, icon: Icon, filteredData, allKeywordData, opi
                 </div> 
             </div> 
         </div> 
-        {isFilterSelected ? ( 
-            numGroups > 0 ? ( 
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6"> 
-                    {Object.entries(groupedKeywords).map(([group, keywords]) => ( 
-                        <React.Fragment key={group}> 
-                            <div className="bg-gradient-to-br from-gray-50 to-blue-50 rounded-xl p-6 border border-gray-200"> 
-                                <div className="flex items-center justify-between mb-4"> 
-                                    <h4 className="font-bold text-gray-900 text-lg flex items-center"> 
-                                        <div className="p-2 bg-white rounded-lg mr-3 shadow-sm"> 
-                                            <Tag className="w-5 h-5 text-blue-600" /> 
-                                        </div> 
-                                        {group} 
-                                    </h4> 
-                                    <div className="px-3 py-1 bg-white text-gray-700 text-xs font-semibold rounded-full shadow-sm">{keywords.length}개 키워드</div> 
-                                </div> 
-                                <div className="flex flex-wrap gap-2"> 
-                                    {keywords.map(({ word, count }, index) => ( 
-                                        <button key={word} title={`클릭하여 관련 의견 보기 (빈도: ${count})`} onClick={() => handleKeywordClick(word)} className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-semibold cursor-pointer border-2 transition-all duration-200 transform hover:scale-105 hover:shadow-md ${selectedKeyword === word ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white border-blue-600 shadow-lg' : index < 3 ? 'bg-white text-blue-700 border-blue-200 hover:bg-blue-50 hover:border-blue-300' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50 hover:border-gray-300'}`}> 
-                                            <Hash className="w-3 h-3 mr-1" />{word}<span className="ml-2 px-2 py-0.5 bg-white bg-opacity-20 rounded-full text-xs">{count}</span> 
-                                        </button> 
-                                    ))} 
-                                </div> 
+        
+        {/* ✨ [수정] isFilterSelected 조건을 제거하고, numGroups로만 데이터 유무를 판단 */}
+        {numGroups > 0 ? ( 
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6"> 
+                {Object.entries(groupedKeywords).map(([group, keywords]) => ( 
+                    <React.Fragment key={group}> 
+                        <div className="bg-gradient-to-br from-gray-50 to-blue-50 rounded-xl p-6 border border-gray-200"> 
+                            <div className="flex items-center justify-between mb-4"> 
+                                <h4 className="font-bold text-gray-900 text-lg flex items-center"> 
+                                    <div className="p-2 bg-white rounded-lg mr-3 shadow-sm"> 
+                                        <Tag className="w-5 h-5 text-blue-600" /> 
+                                    </div> 
+                                    {group} 
+                                </h4> 
+                                <div className="px-3 py-1 bg-white text-gray-700 text-xs font-semibold rounded-full shadow-sm">{keywords.length}개 키워드</div> 
                             </div> 
-                            {numGroups === 1 && <KeywordBarChart keywords={keywords} groupName={group} />} 
-                        </React.Fragment> 
-                    ))} 
-                </div> 
-            ) : ( 
-                <div className="text-center py-12 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl"> 
-                    <div className="p-4 bg-white rounded-full w-20 h-20 mx-auto mb-4 shadow-lg"><MessageSquare className="w-12 h-12 text-gray-400" /></div> 
-                    <p className="text-gray-600 font-medium text-lg">해당 조건의 분석 데이터가 없습니다</p> 
-                    <p className="text-gray-500 text-sm mt-1">다른 필터 조건을 선택해보세요</p> 
-                </div> 
-            ) 
+                            <div className="flex flex-wrap gap-2"> 
+                                {keywords.map(({ word, count }, index) => ( 
+                                    <button key={word} title={`클릭하여 관련 의견 보기 (빈도: ${count})`} onClick={() => handleKeywordClick(word)} className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-semibold cursor-pointer border-2 transition-all duration-200 transform hover:scale-105 hover:shadow-md ${selectedKeyword === word ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white border-blue-600 shadow-lg' : index < 3 ? 'bg-white text-blue-700 border-blue-200 hover:bg-blue-50 hover:border-blue-300' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50 hover:border-gray-300'}`}> 
+                                        <Hash className="w-3 h-3 mr-1" />{word}<span className="ml-2 px-2 py-0.5 bg-white bg-opacity-20 rounded-full text-xs">{count}</span> 
+                                    </button> 
+                                ))} 
+                            </div> 
+                        </div> 
+                        {/* '전체' 또는 필터링된 그룹이 1개일 때만 차트 표시 */}
+                        {numGroups === 1 && <KeywordBarChart keywords={keywords} groupName={group} />} 
+                    </React.Fragment> 
+                ))} 
+            </div> 
         ) : ( 
-            <div className="text-center py-16 bg-gradient-to-br from-blue-50 to-indigo-100 rounded-xl border-2 border-dashed border-blue-200"> 
-                <div className="p-4 bg-white rounded-full w-20 h-20 mx-auto mb-6 shadow-lg"><Search className="w-12 h-12 text-blue-500" /></div> 
-                <h4 className="text-xl font-bold text-gray-900 mb-2">키워드 분석 시작</h4> 
-                <p className="text-gray-600 font-medium">직무 또는 연차를 선택하여 AI 키워드 분석 결과를 확인하세요</p> 
-                <div className="flex items-center justify-center mt-4 space-x-4 text-sm text-gray-500"> 
-                    <div className="flex items-center"><Sparkles className="w-4 h-4 mr-1 text-purple-500" />실시간 분석</div> 
-                    <div className="flex items-center"><Target className="w-4 h-4 mr-1 text-green-500" />정확한 인사이트</div> 
-                </div> 
+            <div className="text-center py-12 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl"> 
+                <div className="p-4 bg-white rounded-full w-20 h-20 mx-auto mb-4 shadow-lg"><MessageSquare className="w-12 h-12 text-gray-400" /></div> 
+                <p className="text-gray-600 font-medium text-lg">해당 조건의 분석 데이터가 없습니다</p> 
+                <p className="text-gray-500 text-sm mt-1">다른 필터 조건을 선택해보세요</p> 
             </div> 
         )} 
+
         {selectedKeyword && ( 
             <div className="mt-6 pt-6 border-t-2 border-gray-100"> 
                 <div className="flex justify-between items-center mb-6"> 
@@ -432,6 +437,8 @@ const KeywordDashboard = ({ title, icon: Icon, filteredData, allKeywordData, opi
     </div> 
   ); 
 };
+
+
 const TransferAnalysis = ({ filteredData, analysisResult }) => { 
   const [selectedUser, setSelectedUser] = useState(null); 
   const [localJob, setLocalJob] = useState('all'); 
