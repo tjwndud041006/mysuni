@@ -25,17 +25,3 @@ This dashboard was specifically designed for **SK Enmove HR managers** to effici
 | Build Tool     | Vite or CRA (based on your config) |
 
 ---
-
-## 📂 Project Structure
-
-```plaintext
-frontend/
-│── public/                # Static assets
-│── src/
-│   ├── components/        # Reusable UI components
-│   ├── pages/             # Page-level components
-│   ├── utils/             # Helper functions
-│   ├── App.jsx            # Main application
-│   └── index.jsx          # Entry point
-│── package.json           # Dependencies & scripts
-│── tailwind.config.js     # TailwindCSS configuration
