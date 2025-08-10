@@ -8,7 +8,7 @@ This dashboard was specifically designed for **SK Enmove HR managers** to effici
 ## Features
 
 - **File Upload** – Import Excel or CSV files containing interview data.
-- ** Interactive Filtering** – Filter results by job role and years of experience.
+- **Interactive Filtering** – Filter results by job role and years of experience.
 - **Keyword Analysis** – Automatically extracts and visualizes key terms from employee feedback.
 - **Data Visualization** – Displays charts for category distribution, keyword frequency, and trends.
 - **Fast & Responsive** – Optimized UI for both desktop and mobile.
