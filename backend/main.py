@@ -46,7 +46,7 @@ try:
         raise ValueError("OpenAI API 키가 설정되지 않았습니다. .env 파일을 확인하세요.")
 
     openai_client = openai.OpenAI(api_key=OPENAI_API_KEY)
-    GPT_MODEL_NAME = "gpt-4o-mini" # 추천: 비용 효율적인 고성능 모델
+    GPT_MODEL_NAME = "gpt-4.1-mini" # 추천: 비용 효율적인 고성능 모델
     print("✅ OpenAI (GPT) 클라이언트 초기화 성공!")
 
 except Exception as e:
@@ -92,9 +92,9 @@ async def extract_keywords_llm_batch(payload: BatchAnalysisIn):
 
 [응답 형식 예시]
 {{
-  "row_0": [ {{"word": "성장", "score": 0.91}}, {{"word": "프로젝트", "score": 0.85}} ],
-  "row_1": [ {{"word": "리더십", "score": 0.87}}, {{"word": "소통", "score": 0.82}} ],
-  "row_2": [ {{"word": "보상", "score": 0.95}} ]
+    "row_0": [ {{"word": "성장", "score": 0.91}}, {{"word": "프로젝트", "score": 0.85}} ],
+    "row_1": [ {{"word": "리더십", "score": 0.87}}, {{"word": "소통", "score": 0.82}} ],
+    "row_2": [ {{"word": "보상", "score": 0.95}} ]
 }}
 """
 
@@ -106,7 +106,10 @@ async def extract_keywords_llm_batch(payload: BatchAnalysisIn):
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt}
                 ],
-                temperature=0.7,
+                # --- 👇 변경된 부분 ---
+                seed=42,          # 랜덤 시드를 고정하여 결과의 재현성을 확보합니다.
+                temperature=0,    # randomness를 최소화하여 일관된 결과를 유도합니다.
+                # --- 👆 변경된 부분 ---
             )
             content = response.choices[0].message.content
             batch_result = json.loads(content)
@@ -142,14 +145,15 @@ async def analyze_transfer_intent(payload: InterviewDataIn):
         print(f"💥 인사이동 분석 오류: {e}")
         raise HTTPException(status_code=500, detail=f"인사이동 희망 여부 분석 중 오류 발생: {e}")
 
-# --- 엔드포인트 5: GPT 기반 HR 추천안 생성 (변경 없음) ---
+# --- 엔드포인트 3: GPT 기반 HR 추천안 생성 (변경 없음) ---
 @app.post("/generate-suggestion")
 async def generate_suggestion(data: TextIn):
     if not openai_client:
         raise HTTPException(status_code=500, detail="OpenAI 클라이언트가 초기화되지 않았습니다.")
 
     system_prompt = """
-당신은 SK엔무브(SK enmove)의 HR 전문 컨설턴트입니다. 당신의 역할은 구성원의 의견을 분석하여, HR 담당자가 즉시 실행할 수 있는 구체적인 개선 방안을 제안하는 것입니다.
+당신은 SK엔무브(SK enmove)의 HR 전문 컨설턴트입니다. 당신의 역할은 구성원의 의견을 분석하여, 
+HR 담당자가 즉시 실행할 수 있는 구체적인 개선 방안을 제안하는 것입니다.
 제안은 반드시 아래에 명시된 'SK엔무브 구성원 성장지원 프로그램'을 기반으로 해야 합니다.
 --- SK엔무브 구성원 성장지원 프로그램 ---
 1. 일을 통한 성장 (경험)
@@ -166,9 +170,11 @@ async def generate_suggestion(data: TextIn):
    - 구성원 Mental Care (구성원 심리 상담, Newcomer Counseling 등)
    - 구성원 Physical Care (사내 헬스 트레이닝 지원 등)
 ---
-지시사항: 아래 구성원의 의견을 바탕으로, 위 프로그램 중 가장 적합한 해결책을 찾아 구체적인 실행 방안을 **한국어 한 문장**으로 제안하세요.
-출력 예시: "새로운 프로젝트 리딩 경험을 쌓고 싶다는 의견에 따라, 유관 부서의 신규 TF에 참여하여 전문성을 활용하고 리더십을 키울 기회를 제공하는 것을 고려해볼 수
-있겠습니다."
+지시사항: 아래 구성원의 의견을 바탕으로, 위 프로그램 중 가장 적합한 해결책을 찾아 
+구체적인 실행 방안을 **한국어 한 문장**으로 제안하세요.
+출력 예시: "새로운 프로젝트 리딩 경험을 쌓고 싶다는 의견에 따라, 
+유관 부서의 신규 TF에 참여하여 전문성을 활용하고 리더십을
+키울 기회를 제공하는 것을 고려해볼 수 있겠습니다."
 """
     user_prompt = f"다음 SK엔무브 구성원의 의견에 대한 맞춤형 HR 추천안을 지시사항에 맞게 한 문장으로 만들어주세요:\n\n{data.text}"
 
