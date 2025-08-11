@@ -774,7 +774,7 @@ const ChartSection = ({
         <StatCard 
           title="총 면담 인원" 
           value={totalUniqueEmployees} 
-          subtitle="명)"
+          subtitle="명"
           icon={Users} 
           color="blue" 
         /> 
@@ -788,7 +788,7 @@ const ChartSection = ({
         <StatCard 
           title="인사이동 희망" 
           value={transferHopefulsCount} // ✨ [수정] 정확한 고유 희망자 수로 변경
-          subtitle="명 (고유 인원)" 
+          subtitle="명" 
           icon={UserCheck} 
           color="purple" 
         /> 
