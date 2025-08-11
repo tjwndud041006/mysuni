@@ -213,9 +213,7 @@ const FileUploader = ({ onFileUpload }) => {
     </div>
   );
 };
-
 // App.jsx 또는 관련 컴포넌트 파일
-
 const KeywordDashboard = ({ title, icon: Icon, filteredData, allKeywordData, opinionColumn }) => { 
   const [localJob, setLocalJob] = useState('all'); 
   const [localYear, setLocalYear] = useState('all'); 
@@ -224,7 +222,6 @@ const KeywordDashboard = ({ title, icon: Icon, filteredData, allKeywordData, opi
   const localJobOptions = useMemo(() => ["all", ...new Set(filteredData.map(item => item.직무 || ""))].filter(Boolean), [filteredData]); 
   const localYearOptions = useMemo(() => ["all", ...new Set(filteredData.map(item => item.직무연차 || ""))].filter(Boolean), [filteredData]); 
 
-  // ✨ [수정] '전체' 선택 시에도 데이터를 그룹핑하도록 로직 변경
   const groupedKeywords = useMemo(() => { 
       const locallyFilteredData = filteredData.filter(item => { 
           const jobMatch = localJob === 'all' || item.직무 === localJob; 
@@ -237,7 +234,6 @@ const KeywordDashboard = ({ title, icon: Icon, filteredData, allKeywordData, opi
       } 
 
       const keywordMap = locallyFilteredData.reduce((acc, row) => { 
-          // '전체' 필터일 경우 '전체' 그룹으로, 아닐 경우 직무별 그룹으로 키 설정
           const groupKey = (localJob === 'all' && localYear === 'all') ? '전체' : row['직무'] || '기타'; 
           
           if (!acc[groupKey]) acc[groupKey] = {}; 
@@ -274,14 +270,14 @@ const KeywordDashboard = ({ title, icon: Icon, filteredData, allKeywordData, opi
           return; 
       } 
       
-        const currentlyVisibleIds = new Set(
-          filteredData
-              .filter(item => {
-                  const jobMatch = localJob === 'all' || item.직무 === localJob;
-                  const yearMatch = localYear === 'all' || item.직무연차 === localYear;
-                  return jobMatch && yearMatch;
-              })
-              .map(item => item.uniqueId)
+      const currentlyVisibleIds = new Set(
+        filteredData
+            .filter(item => {
+                const jobMatch = localJob === 'all' || item.직무 === localJob;
+                const yearMatch = localYear === 'all' || item.직무연차 === localYear;
+                return jobMatch && yearMatch;
+            })
+            .map(item => item.uniqueId)
       );
 
       const opinionIdsWithKeyword = Object.entries(allKeywordData)
@@ -291,7 +287,8 @@ const KeywordDashboard = ({ title, icon: Icon, filteredData, allKeywordData, opi
           )
           .map(([uniqueId]) => uniqueId);
 
-          const opinions = filteredData
+      // ▼▼▼▼▼ [수정된 부분] ▼▼▼▼▼
+      const opinions = filteredData
           .filter(row => opinionIdsWithKeyword.includes(row.uniqueId))
           .map((row, index) => ({
               id: `${row.uniqueId}_${index}`,
@@ -307,143 +304,143 @@ const KeywordDashboard = ({ title, icon: Icon, filteredData, allKeywordData, opi
       setSelectedKeyword(keyword);
     };
 
-    const KeywordBarChart = ({ keywords, groupName }) => { 
-      const top5Keywords = keywords.slice(0, 5); 
-      const maxCount = top5Keywords.length > 0 ? Math.max(...top5Keywords.map(k => k.count)) : 1; 
-      return ( 
-          <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-6 h-full flex flex-col border border-gray-200 shadow-sm">
-              <div className="flex items-center justify-between mb-6">
-                <h4 className="font-bold text-gray-900 flex items-center text-lg">
-                  <div className="p-2 bg-blue-100 rounded-lg mr-3">
-                    <BarChart3 className="w-5 h-5 text-blue-600" />
-                  </div>
-                  {groupName}
-                </h4>
-                <div className="px-3 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded-full">TOP 5</div>
-              </div>
-              <div className="space-y-4 flex-grow">
-                {top5Keywords.map(({ word, count }, index) => (
-                  <div key={word} className="group">
-                    <div className="flex justify-between items-center mb-2">
-                      <div className="flex items-center">
-                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white mr-3 ${index === 0 ? 'bg-gradient-to-r from-yellow-400 to-yellow-500' : index === 1 ? 'bg-gradient-to-r from-gray-400 to-gray-500' : index === 2 ? 'bg-gradient-to-r from-amber-600 to-amber-700' : 'bg-gradient-to-r from-blue-400 to-blue-500'}`}>
-                          {index + 1}
-                        </div>
-                        <span className="text-sm font-semibold text-gray-800">{word}</span>
-                      </div>
-                      <div className="flex items-center">
-                        <span className="text-sm font-bold text-gray-700 mr-2">{count}</span>
-                        <span className="text-xs text-gray-500">회</span>
-                      </div>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
-                      <div className="h-3 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full transition-all duration-500 ease-out shadow-sm" style={{ width: `${(count / maxCount) * 100}%` }} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-          </div> 
-      ); 
-    }; 
-    
-    const numGroups = Object.keys(groupedKeywords).length; 
-  
+  const KeywordBarChart = ({ keywords, groupName }) => { 
+    const top5Keywords = keywords.slice(0, 5); 
+    const maxCount = top5Keywords.length > 0 ? Math.max(...top5Keywords.map(k => k.count)) : 1; 
     return ( 
-      <div className="bg-white rounded-xl p-8 shadow-lg border border-gray-200 hover:shadow-xl transition-all duration-300"> 
-          <div className="flex flex-wrap justify-between items-center mb-6 gap-4"> 
-              <div className="flex items-center"> 
-                  <div className="p-3 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl mr-4 shadow-lg"> 
-                      <Icon className="w-6 h-6 text-white" /> 
-                  </div> 
-                  <div> 
-                      <h3 className="text-xl font-bold text-gray-900">{title}</h3> 
-                      <p className="text-sm text-gray-600 mt-1">AI가 분석한 주요 키워드를 확인하세요</p> 
-                  </div> 
-              </div> 
-              <div className="flex items-center gap-3"> 
-                  <div className="flex items-center bg-gray-50 rounded-lg p-1"> 
-                      <Filter className="w-4 h-4 text-gray-500 ml-2" /> 
-                      <select value={localJob} onChange={(e) => setLocalJob(e.target.value)} className="bg-transparent border-0 text-sm font-medium text-gray-700 focus:ring-0 px-2"> 
-                          {localJobOptions.map(option => <option key={option} value={option}>{option === 'all' ? '전체 직무' : option}</option>)} 
-                      </select> 
-                  </div> 
-                  <div className="flex items-center bg-gray-50 rounded-lg p-1"> 
-                      <Calendar className="w-4 h-4 text-gray-500 ml-2" /> 
-                      <select value={localYear} onChange={(e) => setLocalYear(e.target.value)} className="bg-transparent border-0 text-sm font-medium text-gray-700 focus:ring-0 px-2"> 
-                          {localYearOptions.map(option => <option key={option} value={option}>{option === 'all' ? '전체 연차' : option}</option>)} 
-                      </select> 
-                  </div> 
-              </div> 
-          </div> 
-          
-          {numGroups > 0 ? ( 
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6"> 
-                  {Object.entries(groupedKeywords).map(([group, keywords]) => ( 
-                      <React.Fragment key={group}> 
-                          <div className="bg-gradient-to-br from-gray-50 to-blue-50 rounded-xl p-6 border border-gray-200"> 
-                              <div className="flex items-center justify-between mb-4"> 
-                                  <h4 className="font-bold text-gray-900 text-lg flex items-center"> 
-                                      <div className="p-2 bg-white rounded-lg mr-3 shadow-sm"> 
-                                          <Tag className="w-5 h-5 text-blue-600" /> 
-                                      </div> 
-                                      {group} 
-                                  </h4> 
-                                  <div className="px-3 py-1 bg-white text-gray-700 text-xs font-semibold rounded-full shadow-sm">{keywords.length}개 키워드</div> 
-                              </div> 
-                              <div className="flex flex-wrap gap-2"> 
-                                  {keywords.map(({ word, count }, index) => ( 
-                                      <button key={word} title={`클릭하여 관련 의견 보기 (빈도: ${count})`} onClick={() => handleKeywordClick(word)} className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-semibold cursor-pointer border-2 transition-all duration-200 transform hover:scale-105 hover:shadow-md ${selectedKeyword === word ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white border-blue-600 shadow-lg' : index < 3 ? 'bg-white text-blue-700 border-blue-200 hover:bg-blue-50 hover:border-blue-300' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50 hover:border-gray-300'}`}> 
-                                          <Hash className="w-3 h-3 mr-1" />{word}<span className="ml-2 px-2 py-0.5 bg-white bg-opacity-20 rounded-full text-xs">{count}</span> 
-                                      </button> 
-                                  ))} 
-                              </div> 
-                          </div> 
-                          {numGroups === 1 && <KeywordBarChart keywords={keywords} groupName={group} />} 
-                      </React.Fragment> 
-                  ))} 
-              </div> 
-          ) : ( 
-              <div className="text-center py-12 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl"> 
-                  <div className="p-4 bg-white rounded-full w-20 h-20 mx-auto mb-4 shadow-lg"><MessageSquare className="w-12 h-12 text-gray-400" /></div> 
-                  <p className="text-gray-600 font-medium text-lg">해당 조건의 분석 데이터가 없습니다</p> 
-                  <p className="text-gray-500 text-sm mt-1">다른 필터 조건을 선택해보세요</p> 
-              </div> 
-          )} 
-  
-          {selectedKeyword && ( 
-              <div className="mt-6 pt-6 border-t-2 border-gray-100"> 
-                  <div className="flex justify-between items-center mb-6"> 
-                      <div className="flex items-center"> 
-                          <div className="p-2 bg-blue-100 rounded-lg mr-3"><Eye className="w-5 h-5 text-blue-600" /></div> 
-                          <div> 
-                              <h4 className="font-bold text-gray-900 text-lg"> 
-                                  <span className="text-blue-600 bg-blue-100 px-3 py-1 rounded-full font-bold">"{selectedKeyword}"</span> 관련 상세 정보
-                              </h4> 
-                              <p className="text-sm text-gray-600 mt-1">{relatedOpinions.length}건의 관련 의견을 찾았습니다</p> 
-                          </div> 
-                      </div> 
-                      <button onClick={() => setSelectedKeyword(null)} className="p-2 rounded-full hover:bg-gray-100 transition-colors duration-200"> 
-                          <X className="w-6 h-6 text-gray-500" /> 
-                      </button> 
+        <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-6 h-full flex flex-col border border-gray-200 shadow-sm">
+            <div className="flex items-center justify-between mb-6">
+              <h4 className="font-bold text-gray-900 flex items-center text-lg">
+                <div className="p-2 bg-blue-100 rounded-lg mr-3">
+                  <BarChart3 className="w-5 h-5 text-blue-600" />
+                </div>
+                {groupName}
+              </h4>
+              <div className="px-3 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded-full">TOP 5</div>
+            </div>
+            <div className="space-y-4 flex-grow">
+              {top5Keywords.map(({ word, count }, index) => (
+                <div key={word} className="group">
+                  <div className="flex justify-between items-center mb-2">
+                    <div className="flex items-center">
+                      <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white mr-3 ${index === 0 ? 'bg-gradient-to-r from-yellow-400 to-yellow-500' : index === 1 ? 'bg-gradient-to-r from-gray-400 to-gray-500' : index === 2 ? 'bg-gradient-to-r from-amber-600 to-amber-700' : 'bg-gradient-to-r from-blue-400 to-blue-500'}`}>
+                        {index + 1}
+                      </div>
+                      <span className="text-sm font-semibold text-gray-800">{word}</span>
+                    </div>
+                    <div className="flex items-center">
+                      <span className="text-sm font-bold text-gray-700 mr-2">{count}</span>
+                      <span className="text-xs text-gray-500">회</span>
+                    </div>
                   </div>
-                  <div className="space-y-4 max-h-[40rem] overflow-y-auto pr-2">
-                      {relatedOpinions.length > 0 ? (
-                          relatedOpinions.map((item) => (
-                              <OpinionCard key={item.id} item={item} />
-                          ))
-                      ) : (
-                          <div className="text-center py-8 bg-gray-50 rounded-xl"> 
-                              <AlertCircle className="w-8 h-8 text-gray-400 mx-auto mb-2" /> 
-                              <p className="text-gray-500">관련 의견을 찾을 수 없습니다</p> 
-                          </div>
-                      )}
+                  <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                    <div className="h-3 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full transition-all duration-500 ease-out shadow-sm" style={{ width: `${(count / maxCount) * 100}%` }} />
                   </div>
-              </div> 
-          )} 
-      </div> 
+                </div>
+              ))}
+            </div>
+        </div> 
     ); 
-  };
+  }; 
+  
+  const numGroups = Object.keys(groupedKeywords).length; 
 
+  return ( 
+    <div className="bg-white rounded-xl p-8 shadow-lg border border-gray-200 hover:shadow-xl transition-all duration-300"> 
+        <div className="flex flex-wrap justify-between items-center mb-6 gap-4"> 
+            <div className="flex items-center"> 
+                <div className="p-3 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl mr-4 shadow-lg"> 
+                    <Icon className="w-6 h-6 text-white" /> 
+                </div> 
+                <div> 
+                    <h3 className="text-xl font-bold text-gray-900">{title}</h3> 
+                    <p className="text-sm text-gray-600 mt-1">AI가 분석한 주요 키워드를 확인하세요</p> 
+                </div> 
+            </div> 
+            <div className="flex items-center gap-3"> 
+                <div className="flex items-center bg-gray-50 rounded-lg p-1"> 
+                    <Filter className="w-4 h-4 text-gray-500 ml-2" /> 
+                    <select value={localJob} onChange={(e) => setLocalJob(e.target.value)} className="bg-transparent border-0 text-sm font-medium text-gray-700 focus:ring-0 px-2"> 
+                        {localJobOptions.map(option => <option key={option} value={option}>{option === 'all' ? '전체 직무' : option}</option>)} 
+                    </select> 
+                </div> 
+                <div className="flex items-center bg-gray-50 rounded-lg p-1"> 
+                    <Calendar className="w-4 h-4 text-gray-500 ml-2" /> 
+                    <select value={localYear} onChange={(e) => setLocalYear(e.target.value)} className="bg-transparent border-0 text-sm font-medium text-gray-700 focus:ring-0 px-2"> 
+                        {localYearOptions.map(option => <option key={option} value={option}>{option === 'all' ? '전체 연차' : option}</option>)} 
+                    </select> 
+                </div> 
+            </div> 
+        </div> 
+        
+        {numGroups > 0 ? ( 
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6"> 
+                {Object.entries(groupedKeywords).map(([group, keywords]) => ( 
+                    <React.Fragment key={group}> 
+                        <div className="bg-gradient-to-br from-gray-50 to-blue-50 rounded-xl p-6 border border-gray-200"> 
+                            <div className="flex items-center justify-between mb-4"> 
+                                <h4 className="font-bold text-gray-900 text-lg flex items-center"> 
+                                    <div className="p-2 bg-white rounded-lg mr-3 shadow-sm"> 
+                                        <Tag className="w-5 h-5 text-blue-600" /> 
+                                    </div> 
+                                    {group} 
+                                </h4> 
+                                <div className="px-3 py-1 bg-white text-gray-700 text-xs font-semibold rounded-full shadow-sm">{keywords.length}개 키워드</div> 
+                            </div> 
+                            <div className="flex flex-wrap gap-2"> 
+                                {keywords.map(({ word, count }, index) => ( 
+                                    <button key={word} title={`클릭하여 관련 의견 보기 (빈도: ${count})`} onClick={() => handleKeywordClick(word)} className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-semibold cursor-pointer border-2 transition-all duration-200 transform hover:scale-105 hover:shadow-md ${selectedKeyword === word ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white border-blue-600 shadow-lg' : index < 3 ? 'bg-white text-blue-700 border-blue-200 hover:bg-blue-50 hover:border-blue-300' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50 hover:border-gray-300'}`}> 
+                                        <Hash className="w-3 h-3 mr-1" />{word}<span className="ml-2 px-2 py-0.5 bg-white bg-opacity-20 rounded-full text-xs">{count}</span> 
+                                    </button> 
+                                ))} 
+                            </div> 
+                        </div> 
+                        {numGroups === 1 && <KeywordBarChart keywords={keywords} groupName={group} />} 
+                    </React.Fragment> 
+                ))} 
+            </div> 
+        ) : ( 
+            <div className="text-center py-12 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl"> 
+                <div className="p-4 bg-white rounded-full w-20 h-20 mx-auto mb-4 shadow-lg"><MessageSquare className="w-12 h-12 text-gray-400" /></div> 
+                <p className="text-gray-600 font-medium text-lg">해당 조건의 분석 데이터가 없습니다</p> 
+                <p className="text-gray-500 text-sm mt-1">다른 필터 조건을 선택해보세요</p> 
+            </div> 
+        )} 
+
+        {selectedKeyword && ( 
+            <div className="mt-6 pt-6 border-t-2 border-gray-100"> 
+                <div className="flex justify-between items-center mb-6"> 
+                    <div className="flex items-center"> 
+                        <div className="p-2 bg-blue-100 rounded-lg mr-3"><Eye className="w-5 h-5 text-blue-600" /></div> 
+                        <div> 
+                            <h4 className="font-bold text-gray-900 text-lg"> 
+                                <span className="text-blue-600 bg-blue-100 px-3 py-1 rounded-full font-bold">"{selectedKeyword}"</span> 관련 상세 정보
+                            </h4> 
+                            <p className="text-sm text-gray-600 mt-1">{relatedOpinions.length}건의 관련 의견을 찾았습니다</p> 
+                        </div> 
+                    </div> 
+                    <button onClick={() => setSelectedKeyword(null)} className="p-2 rounded-full hover:bg-gray-100 transition-colors duration-200"> 
+                        <X className="w-6 h-6 text-gray-500" /> 
+                    </button> 
+                </div>
+                <div className="space-y-4 max-h-[40rem] overflow-y-auto pr-2">
+                    {relatedOpinions.length > 0 ? (
+                        relatedOpinions.map((item) => (
+                            <OpinionCard key={item.id} item={item} />
+                        ))
+                    ) : (
+                        <div className="text-center py-8 bg-gray-50 rounded-xl"> 
+                            <AlertCircle className="w-8 h-8 text-gray-400 mx-auto mb-2" /> 
+                            <p className="text-gray-500">관련 의견을 찾을 수 없습니다</p> 
+                        </div>
+                    )}
+                </div>
+            </div> 
+        )} 
+    </div> 
+  ); 
+};
+  
 const TransferAnalysis = ({ filteredData, analysisResult, totalUniqueEmployees }) => { 
   const [selectedUser, setSelectedUser] = useState(null); 
   const [localJob, setLocalJob] = useState('all'); 
@@ -793,7 +790,7 @@ const ChartSection = ({
         /> 
         <StatCard 
           title="인사이동 희망" 
-          value={transferHopefulsCount} // ✨ [수정] 정확한 고유 희망자 수로 변경
+          value={transferHopefulsCount} 
           subtitle="명" 
           icon={UserCheck} 
           color="purple" 
@@ -1175,5 +1172,3 @@ const ChartSection = ({
  }; 
 
  export default App;
-
- //일잘러파이팅
