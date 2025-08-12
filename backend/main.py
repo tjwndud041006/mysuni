@@ -106,6 +106,7 @@ async def extract_keywords_llm_batch(payload: BatchAnalysisIn):
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt}
                 ],
+                seed = 42,
                 temperature=0.7,
             )
             content = response.choices[0].message.content
@@ -120,7 +121,7 @@ async def extract_keywords_llm_batch(payload: BatchAnalysisIn):
     return final_result
 
 
-# --- ✨ [추가] 엔드포인트: 인사이동 희망 여부 분석 ---
+# --- 엔드포인트2 : 인사이동 희망 여부 분석 ---
 @app.post("/analyze-transfer-intent")
 async def analyze_transfer_intent(payload: InterviewDataIn):
     transfer_keywords = ['이동', '변경']
@@ -128,7 +129,6 @@ async def analyze_transfer_intent(payload: InterviewDataIn):
     others = []
     try:
         for row in payload.data:
-            # 💡 아래 컬럼명은 실제 데이터에 맞게 확인/수정해야 합니다.
             opinion_text = row.get('(2) 성장/역량/커리어-구성원 의견', '')
             if opinion_text and any(keyword in opinion_text for keyword in transfer_keywords):
                 hopefuls.append(row)
@@ -139,7 +139,7 @@ async def analyze_transfer_intent(payload: InterviewDataIn):
             "others": others
         }
     except Exception as e:
-        print(f"💥 인사이동 분석 오류: {e}")
+        print(f"인사이동 분석 오류: {e}")
         raise HTTPException(status_code=500, detail=f"인사이동 희망 여부 분석 중 오류 발생: {e}")
 
 # --- 엔드포인트 5: GPT 기반 HR 추천안 생성 (변경 없음) ---
