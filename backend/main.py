@@ -106,7 +106,6 @@ async def extract_keywords_llm_batch(payload: BatchAnalysisIn):
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt}
                 ],
-                seed = 42,
                 temperature=0.7,
             )
             content = response.choices[0].message.content
