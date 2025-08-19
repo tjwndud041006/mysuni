@@ -996,9 +996,9 @@ const ChartSection = ({
                  <SkLogo /> 
                  <div> 
                    <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent"> 
-                     [Pilot] 면담결과 대시보드 
+                     EnSight
                    </h1> 
-                   <p className="text-sm text-gray-600 mt-1">[Pilot] SK엔무브 HR 분석 시스템</p> 
+                   <p className="text-sm text-gray-600 mt-1">SK엔무브 HR 분석 시스템</p> 
                  </div> 
                </div> 
              </div> 
