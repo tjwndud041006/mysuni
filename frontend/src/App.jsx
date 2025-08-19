@@ -833,8 +833,7 @@ const ChartSection = ({
     </div> 
   ); 
 };
-
- const App = () => {
+const App = () => {
   const [data, setData] = useState([]);
   const [transferAnalysisData, setTransferAnalysisData] = useState(null);
   const [workKeywords, setWorkKeywords] = useState(null);
@@ -893,41 +892,31 @@ const ChartSection = ({
         setProgress(10);
         
         if (isAnalysisEnabled) {
-            // ✨ [수정] 분석 함수 호출 시 'analysisMode' 인자 제거
-            
-            // Step 1: 업무 분석 (10% -> 35%)
             setLoadingMessage("업무 관련 의견을 분석 중입니다...");
             const workResult = await runKeywordAnalysis(jsonData, '(1) 업무-구성원 의견', (processed, total) => {
               setProgress(10 + Math.round((processed / total) * 25));
             });
             setWorkKeywords(workResult);
 
-            // Step 2: 성장/역량 분석 (35% -> 60%)
             setLoadingMessage("성장/역량 관련 의견을 분석 중입니다...");
             const growthResult = await runKeywordAnalysis(jsonData, '(2) 성장/역량/커리어-구성원 의견', (processed, total) => {
                 setProgress(35 + Math.round((processed / total) * 25));
             });
             setGrowthKeywords(growthResult);
 
-            // Step 3: 업무환경 분석 (60% -> 85%)
             setLoadingMessage("업무환경 관련 의견을 분석 중입니다...");
             const envResult = await runKeywordAnalysis(jsonData, '(3) 업무환경조성-구성원 의견', (processed, total) => {
                 setProgress(60 + Math.round((processed / total) * 25));
             });
             setEnvKeywords(envResult);
-
         } else {
             setWorkKeywords(null);
             setGrowthKeywords(null);
             setEnvKeywords(null);
         }
         
-        // 🚫 [삭제]
-        // setProcessedCount(0);
-        // setTotalCount(0);
         setProgress(85);
 
-        // Step 4: 인사이동 분석 (85% -> 95%)
         setLoadingMessage("인사이동 희망 여부를 분석 중입니다...");
         const transferResponse = await fetch(`${BACKEND_URL}/analyze-transfer-intent`, {
             method: 'POST',
@@ -939,7 +928,6 @@ const ChartSection = ({
         setTransferAnalysisData(transferResult);
         setProgress(95);
 
-        // Step 5: 데이터 로딩 완료
         setLoadingMessage("대시보드를 준비 중입니다...");
         setData(jsonData);
         setProgress(100);
@@ -965,6 +953,18 @@ const ChartSection = ({
      link.click(); 
      URL.revokeObjectURL(url); 
    }; 
+
+   // ▼▼▼▼▼ [추가된 부분] ▼▼▼▼▼
+   const handleSampleDownload = () => {
+       const fileUrl = '/sample_interview_data.xlsx'; 
+       const link = document.createElement('a');
+       link.href = fileUrl;
+       link.setAttribute('download', '면담데이터_분석_샘플.xlsx');
+       document.body.appendChild(link);
+       link.click();
+       document.body.removeChild(link);
+   };
+   // ▲▲▲▲▲ [추가된 부분] ▲▲▲▲▲
 
    const SkLogo = () => ( 
      <img src="/logo.svg" alt="Logo" className="w-16 h-16" /> 
@@ -1032,9 +1032,6 @@ const ChartSection = ({
                     </div>
                     <h3 className="mt-4 text-lg font-semibold text-gray-900">AI 분석 진행 중</h3>
                     <p className="mt-2 text-sm text-gray-600 text-center max-w-md">{loadingMessage}</p>
-                    
-                    {/* 🚫 [삭제] 'pos', 'textrank' 모드용 진행률 표시 삭제 */}
-
                     <div className="w-full max-w-md mt-4">
                         <div className="w-full bg-gray-200 rounded-full h-2.5">
                             <div 
@@ -1071,8 +1068,31 @@ const ChartSection = ({
                   </ToggleSwitch>
                 </div>
                 
-                {/* 🚫 [삭제] 분석 모드 선택 UI 전체 삭제 */}
-                
+                {/* ▼▼▼▼▼ [수정된 부분] ▼▼▼▼▼ */}
+                <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-200 w-full md:w-auto">
+                    <div className="flex items-center">
+                        <div className="p-2 rounded-lg mr-3 bg-green-100">
+                            <FileSpreadsheet className="w-6 h-6 text-green-600" />
+                        </div>
+                        <div>
+                            <span className="text-lg font-bold text-gray-800">
+                                샘플 파일 다운로드
+                            </span>
+                            <p className="text-sm text-gray-600 mt-1">
+                                분석에 필요한 Excel 양식을 확인하세요.
+                            </p>
+                        </div>
+                    </div>
+                    <button
+                        onClick={handleSampleDownload}
+                        className="mt-4 w-full inline-flex items-center justify-center px-4 py-2 bg-gradient-to-r from-green-600 to-green-700 text-white font-semibold rounded-lg hover:from-green-700 hover:to-green-800 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                    >
+                        <Download className="w-4 h-4 mr-2" />
+                        샘플 다운로드
+                    </button>
+                </div>
+                {/* ▲▲▲▲▲ [수정된 부분] ▲▲▲▲▲ */}
+
               </div>
             )}
           </div>
@@ -1169,6 +1189,6 @@ const ChartSection = ({
       </main>
      </div> 
    ); 
- }; 
+ };
 
  export default App;
